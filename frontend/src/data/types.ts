@@ -5,7 +5,11 @@ export type EntryRow = {
   status: string
   pending: boolean
   abnormal: boolean
-  [field: string]: string | number | boolean
+  /** 连接域补充的证据字段：配置版本、资格、待写回检查等，只用于本地行视图。 */
+  configVersion?: string
+  eligibility?: string
+  pendingChecks?: number
+  [field: string]: string | number | boolean | undefined
 }
 
 export type ModuleMeta = {

@@ -1,3 +1,4 @@
+import { resetConnections } from '@/api/connection-service'
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
@@ -28,7 +29,25 @@ export function listEntries(key: string, filters: Record<string, string> = {}): 
   return { items: matched, total: matched.length, page: 1, size: matched.length }
 }
 
+/** 连接域的动作必须走检查/写回/裁定流程，不允许在这里直接改状态绕过恢复门槛。 */
+const CONNECTION_DOMAIN_ACTIONS = new Set([
+  '提交连接检查',
+  '写回检查结论',
+  '人工确认恢复',
+  '人工隔离',
+  '启动同步',
+  '续跑同步',
+])
+
 export function runAction(key: string, id: number, action: string): ActionResult {
+  if (key === 'source' || key === 'datasync') {
+    if (CONNECTION_DOMAIN_ACTIONS.has(action)) {
+      return {
+        ok: false,
+        message: `「${action}」必须走连接资格流程：数据源管理里提交检查 → 写回 → 回看证据，数据同步里从失败位点续跑；这里不做状态直改`,
+      }
+    }
+  }
   const meta = moduleMeta(key)
   const target = meta.actionTargets[action]
   if (!target) {
@@ -57,6 +76,10 @@ export function runAction(key: string, id: number, action: string): ActionResult
 }
 
 export function resetModule(key: string): PageResult {
+  if (key === 'source' || key === 'datasync' || key === 'monitor') {
+    resetConnections()
+    return listEntries(key)
+  }
   resetRows(key)
   return listEntries(key)
 }
